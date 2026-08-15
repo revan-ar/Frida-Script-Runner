@@ -4247,6 +4247,22 @@ def generate_frida_script():
             'error': f'Failed to generate script: {str(e)}'
         }), 500
 
+@app.route('/get-ghidra-context', methods=['GET'])
+def get_ghidra_context():
+    """Get Ghidra analysis context to enrich AI prompt"""
+    try:
+        context = get_ghidra_analysis_context()
+        return jsonify({
+            'success': True,
+            'context': context
+        })
+    except Exception as e:
+        log_to_fsr_logs(f"[ERROR] Failed to get Ghidra context: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 def write_temp_generated_script(content: str) -> bool:
     """Persist provided script content to temp_generated.js."""
     if not content:
