@@ -2,7 +2,7 @@ services:
   frida-script-runner:
     build: .
     ports:
-      - "5000:5000"
+      - "5001-5010:5000"
     volumes:
       - ./scripts:/app/scripts
       - ./frida-gadget:/app/frida-gadget

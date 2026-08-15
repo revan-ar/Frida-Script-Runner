@@ -3389,6 +3389,7 @@ def run_frida_with_socketio(script_path, package, frida_extra_args:str = ""):
     try:
         frida_output_buffer = []
         command = ["frida", "-l", script_path, "-U", "-f", package]
+
         extra_args_list = []
         if frida_extra_args:
             try:
@@ -4230,13 +4231,17 @@ def generate_frida_script():
         log_to_fsr_logs(f"[DEBUG] Generating AI-powered Frida script for prompt: {prompt}")
         
         # Generate Frida script using Codex bridge
-        generated_script = generate_frida_script_from_prompt(prompt)
+        result = generate_frida_script_from_prompt(prompt)
         
-        log_to_fsr_logs(f"[DEBUG] Successfully generated AI-powered Frida script")
-        
+        if result.get("success"):
+            log_to_fsr_logs(f"[DEBUG] Successfully generated AI-powered Frida script")
+        else:
+            log_to_fsr_logs(f"[WARNING] AI generation encountered an issue, returned fallback script.")
+
         return jsonify({
-            'success': True,
-            'script': generated_script,
+            'success': result.get('success', False),
+            'script': result.get('script', ''),
+            'error': result.get('error', ''),
             'powered_by': 'Codex Bridge + Ghidra MCP'
         })
         
@@ -4298,7 +4303,7 @@ def generate_frida_script_from_prompt(prompt):
             log_to_fsr_logs("[WARNING] Codex bridge not available, using fallback templates")
             fallback_script = generate_fallback_script(prompt)
             write_temp_generated_script(fallback_script)
-            return fallback_script
+            return {"success": False, "script": fallback_script, "error": "Codex bridge unavailable"}
 
         log_to_fsr_logs("[DEBUG] Calling Codex bridge for script generation...")
 
@@ -4315,30 +4320,30 @@ def generate_frida_script_from_prompt(prompt):
                 if stored:
                     script_from_file = read_temp_generated_script()
                     if script_from_file:
-                        return script_from_file
+                        return {"success": True, "script": script_from_file, "error": ""}
 
                     log_to_fsr_logs("[WARNING] temp_generated.js missing or empty after write; returning cleaned Codex output")
                 else:
                     log_to_fsr_logs("[WARNING] Failed to persist cleaned Codex output; returning in-memory copy")
-                return cleaned_script
+                return {"success": True, "script": cleaned_script, "error": ""}
 
             log_to_fsr_logs("[ERROR] Codex response did not yield a usable script block")
             fallback_script = generate_fallback_script(prompt)
             write_temp_generated_script(fallback_script)
-            return fallback_script
+            return {"success": False, "script": fallback_script, "error": "No usable JS block found in AI response"}
 
         error_msg = response.get("error", "Unknown bridge error")
         log_to_fsr_logs(f"[ERROR] Codex bridge returned no script: {error_msg}")
         fallback_script = generate_fallback_script(prompt)
         write_temp_generated_script(fallback_script)
-        return fallback_script
+        return {"success": False, "script": fallback_script, "error": error_msg}
 
     except Exception as exc:
         log_to_fsr_logs(f"[ERROR] Codex bridge generation failed: {exc}")
         log_to_fsr_logs("[DEBUG] Falling back to template-based generation")
         fallback_script = generate_fallback_script(prompt)
         write_temp_generated_script(fallback_script)
-        return fallback_script
+        return {"success": False, "script": fallback_script, "error": str(exc)}
 
 
 def is_codex_bridge_available():
@@ -4461,6 +4466,8 @@ def attempt_script_autofix(script_path, error_messages, output_log):
 Error Messages: {error_summary}
 
 Recent Output: {output_summary}
+
+IMPORTANT: Many errors are caused by using outdated Frida syntax with newer Frida versions. Ensure the updated script is fully compatible with the latest Frida API.
 
 Please read the current script from temp_generated.js, fix the errors, and update the file with the corrected version."""
 

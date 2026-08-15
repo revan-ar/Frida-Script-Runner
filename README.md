@@ -65,84 +65,130 @@ A comprehensive toolkit for analyzing, manipulating, and interacting with mobile
 
 ---
 
-##  Prerequisites
+## Prerequisites
 
-### Required
-- **Python 3.x.x**
+### Required Software
+- **Python 3.11.x** (required)
+- **Flask** (web framework)
 - **Frida** (instrumentation toolkit)
 - **ADB** (for Android - [installation guide](https://beebom.com/how-to-install-adb-windows-mac/))
 - **ideviceinfo** (for iOS - [installation guide](https://command-not-found.com/ideviceinfo))
 
-### Device Requirements
-- **Android:** Rooted device with Frida server
-- **iOS:** Jailbroken device with Frida installed (Cydia/Sileo/Zebra)
+### AI Features (Optional)
+- **Codex CLI** (for AI-powered script generation - [setup guide](https://platform.openai.com/docs/quickstart))
+- **Ghidra MCP Server** (for binary analysis integration)
+- **JADX MCP Server** (for Android APK analysis)
 
-### Optional (AI Features)
-- **Codex CLI** - For AI-powered script generation
-- **MCP Servers** - Ghidra & JADX for binary analysis
+### Device Requirements
+- **Android:** Root access required for Frida server installation
+- **iOS:** Jailbroken device with Frida installed via Cydia/Sileo/Zebra
 
 ---
 
+## Installation
 
-### Installation
+### Method 1: Native Installation
 
 ```bash
-1. Clone repository
+1. Clone the repository:
 git clone https://github.com/z3n70/Frida-Script-Runner.git
-
-2. Go to Frida-Script-Runner Directory
 cd Frida-Script-Runner
 
-3. Install dependencies
+2. Install Dependencies:
 pip3 install -r requirements.txt
 
-4. Run application
+3. Run The Application:
 python3.11 frida_script.py
 
-5. Access web interface
+4. Access the Web Interface:
 http://127.0.0.1:5000
 ```
 
-**Docker Installation:**
+### Method 2: Docker Installation
+
 ```bash
-1. Clone repository
-git clone https://github.com/z3n70/Frida-Script-Runner.git
-
-2. Go to Frida-Script-Runner Directory
-cd Frida-Script-Runner
-
-3. Run Command Docker
+1. Build and run with Docker Compose:
 docker-compose up --build
+
+2. Start Codex Bridge (for AI features):
+# On host machine (Windows/Linux/macOS)
+python codex-bridge.py
+
+3. Access the Applications:
+Frida Script Runner: http://localhost:5000
+Codex Bridge Tester: http://localhost:8091
 ```
 
-**Auto Installation:**
+### Method 3: Auto Installation
+
 ```bash
 1. Clone repository
 git clone https://github.com/z3n70/Frida-Script-Runner.git
-
-2. Go to Frida-Script-Runner Directory
 cd Frida-Script-Runner
 
-3. Run Command
+2. Run Command
 chmod +x install.sh
 
-4. And Run
+3. And Run
 ./install.sh
 ```
+
 ---
 
-##  Usage
+## AI Setup (Optional)
 
-1. **Connect Device** - USB debugging enabled (Android) or trusted (iOS)
-2. **Start Frida Server** - Use web interface to start/stop server
-3. **Select Package** - Choose target app from package list
-4. **Run Script** - Select pre-built script or enter custom code
-5. **Monitor Output** - View real-time logs and results
+If you want to use AI-powered script generation:
 
-**AI Script Generation:**
-- Select "Auto Generate Script" option
-- Enter natural language prompt (e.g., "Hook login function and log parameters")
-- Click "Generate Script" and review output
+1. **Install Codex CLI:**
+   - Follow the [Codex CLI setup guide](https://platform.openai.com/docs/quickstart)
+   - Authenticate with your OpenAI account and ensure the `codex` command is available
+2. **Configure MCP Servers (MUST):**
+   - Set up Ghidra MCP server for binary analysis
+   - Configure JADX MCP server for APK analysis
+   - Update paths in `codex-bridge.py` if needed
+   - Copy `.config.toml.example` to `.config.toml` and adjust MCP server paths for your setup
+
+---
+
+## Usage
+
+### Basic Usage
+
+1. **Device Setup:**
+   - Connect your USB device and run Frida Server (root/jailbreak required)
+   - For iPhone: Ensure Frida is installed via Cydia, Sileo, Zebra, or another package manager
+2. **Run Scripts:**
+   - Open the web interface and select the target package and script
+   - Click "Run Frida" to start the Frida process
+   - View real-time output in the output container
+3. **Script Management:**
+   - Android scripts: Place in `Script Directory 1`
+   - iOS scripts: Place in `Script Directory 2`
+   - See `script.json` for structure and naming conventions
+
+### AI-Powered Script Generation
+
+**Using the Web Interface:**
+1. Navigate to the "AI Generate" tab
+2. Enter your request (e.g., "Hook the login function and log parameters")
+3. Click "Generate Script" to create a custom Frida script
+
+**Using the Codex Bridge Tester:**
+1. Access [http://localhost:8091](http://localhost:8091) (when bridge is running)
+2. Test different prompts and refine your requests
+3. Generated scripts are optimized for ARM Android devices
+
+**Example Prompts:**
+- *"Intercept SSL pinning bypass for Android app"*
+- *"Hook Java method com.example.App.authenticate and modify return value"*
+- *"Monitor file operations and log file paths"*
+- *"Hook the main function and log all parameters"*
+
+### Advanced Features
+
+- **Binary Analysis:** AI can access Ghidra/JADX data for accurate function names and addresses
+- **Auto-Fix:** Scripts automatically include ARM stability patterns and error handling
+- **Real-time Analysis:** MCP servers provide live binary analysis during script generation
 
 ---
 ##  Contributing

@@ -208,7 +208,9 @@
 
               <div class="mb-3">
                 <label for="script_content" class="form-label">Script Content</label>
-                <textarea class="form-control" name="script_content" id="scriptContent" rows="5" placeholder="Script Content" style="height: 150px;"></textarea>
+                <!-- Monaco Editor Container -->
+                <div id="monacoEditorContainer" style="height: 300px; border: 1px solid #ced4da; border-radius: 0.375rem; overflow: hidden;"></div>
+                <textarea class="form-control" name="script_content" id="scriptContent" style="display:none;"></textarea>
               </div>
 
               <!-- Additional Frida CLI Parameters -->

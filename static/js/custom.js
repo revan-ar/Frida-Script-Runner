@@ -10,6 +10,42 @@ runButton.disabled = false;
 stopButton.disabled = true;
 fixButton.style.display = "none";
 
+window.monacoEditor = null;
+
+// Initialize Monaco Editor
+if (typeof require !== 'undefined') {
+  require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs' }});
+  require(['vs/editor/editor.main'], function() {
+    var container = document.getElementById('monacoEditorContainer');
+    if (container) {
+      window.monacoEditor = monaco.editor.create(container, {
+        value: document.getElementById('scriptContent').value || "",
+        language: 'javascript',
+        theme: 'vs-dark',
+        automaticLayout: true,
+        minimap: { enabled: false }
+      });
+      window.monacoEditor.onDidChangeModelContent(() => {
+        document.getElementById("scriptContent").value = window.monacoEditor.getValue();
+      });
+    }
+  });
+}
+
+function getScriptContent() {
+  if (window.monacoEditor) {
+    return window.monacoEditor.getValue();
+  }
+  return document.getElementById("scriptContent").value;
+}
+
+function setScriptContent(value) {
+  if (window.monacoEditor) {
+    window.monacoEditor.setValue(value);
+  }
+  document.getElementById("scriptContent").value = value;
+}
+
 socket.on('connected', function(data){
   console.log(data)
 })
@@ -254,7 +290,6 @@ bypassScript.addEventListener("change", function () {
 
 function updateTextArea() {
   var select = document.getElementById("selectedScript");
-  var scriptContentTextArea = document.getElementById("scriptContent");
   var selectedScript = select.options[select.selectedIndex].value;
 
   fetch(`/get-script-content?script=${selectedScript}`)
@@ -264,9 +299,9 @@ function updateTextArea() {
       }
       return response.text();
     })
-    .then((data) => (scriptContentTextArea.value = data))
+    .then((data) => setScriptContent(data))
     .catch((error) => {
-      scriptContentTextArea.value = `Error loading script content: ${error.message}`;
+      setScriptContent(`Error loading script content: ${error.message}`);
       console.error(error);
     });
 }
@@ -306,19 +341,14 @@ fixButton.addEventListener("click", function (event) {
   .then(data => {
     if (data.success) {
       if (data.fixed_script) {
-        const scriptContentTextarea = document.getElementById("scriptContent");
-        if (scriptContentTextarea) {
-          scriptContentTextarea.value = data.fixed_script;
-          console.log("Updated script content with fixed script");
-          const useCustomScript = document.getElementById("customScriptCheckbox");
-          if (useCustomScript) {
-            useCustomScript.checked = true;
-            console.log("Enabled custom script checkbox");
-          } else {
-            console.log("Custom script checkbox not found (ID: customScriptCheckbox)");
-          }
+        setScriptContent(data.fixed_script);
+        console.log("Updated script content with fixed script");
+        const useCustomScript = document.getElementById("customScriptCheckbox");
+        if (useCustomScript) {
+          useCustomScript.checked = true;
+          console.log("Enabled custom script checkbox");
         } else {
-          console.log("Script content textarea not found (ID: scriptContent)");
+          console.log("Custom script checkbox not found (ID: customScriptCheckbox)");
         }
       } else {
         console.log("No fixed_script in response");
@@ -341,18 +371,6 @@ fixButton.addEventListener("click", function (event) {
     fixButton.innerHTML = '<i class="bi bi-tools"></i> Fix Script';
   });
 });
-// function stopFrida() {
-//     preventDefault();
-//     stopButton.disabled = true;
-//     runButton.disabled = false;
-//     logOutput.innerHTML = '<ul id="output-list"></ul>';
-//     fetch('/stop-frida')
-//         .then(response => response.text())
-//         .then(data => {
-//             document.getElementById("outputContainer").innerHTML += '<div class="alert alert-info mt-4"><h2>Result:</h2><p>' + data + '</p></div>';
-//         })
-//         .catch(error => console.error(error));
-// }
 
 runButton.addEventListener("click", function (event) {
   event.preventDefault();
@@ -439,7 +457,8 @@ document.addEventListener("DOMContentLoaded", function () {
           li.className = "list-group-item";
           li.style.cursor = "pointer";
           li.innerHTML = `<h5>${item.title}</h5><a href="${item.source}" target="_blank" class="text-decoration-none d-block small text-muted">${item.source}</a><p>${item.preview}</p>`;
-          li.onclick = () => {document.getElementById("scriptContent").value = item.script;
+          li.onclick = () => {
+            setScriptContent(item.script);
             bsModal.hide();
             setTimeout(() => {
               document.querySelectorAll(".modal-backdrop").forEach(el => el.remove());
@@ -466,7 +485,6 @@ document.addEventListener("DOMContentLoaded", function () {
     performSearch(keyword);
   });
 
-  // Frida Server Management
   document.addEventListener('click', function(e) {
     if (e.target.classList.contains('start-frida-server') || e.target.closest('.start-frida-server')) {
       const button = e.target.classList.contains('start-frida-server') ? e.target : e.target.closest('.start-frida-server');
@@ -839,7 +857,70 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+
+  const packageSelect = document.getElementById('packageSelect');
+  if (packageSelect) {
+    packageSelect.addEventListener('change', triggerMCPAnalysis);
+  }
 });
+
+function triggerMCPAnalysis() {
+  const packageSelect = document.getElementById('packageSelect');
+  const selectedPackage = packageSelect ? packageSelect.value : null;
+  const selectedScript = document.getElementById('selectedScript') ? document.getElementById('selectedScript').value : null;
+
+  if (selectedScript === 'auto_generate' && selectedPackage && !selectedPackage.includes('----') && selectedPackage !== 'Loading packages...' && selectedPackage !== 'No packages found') {
+    if (confirm("Apakah aplikasi ini akan dilanjutkan ke proses analysis?")) {
+      appendContent("Starting MCP/Ghidra analysis for package: " + selectedPackage);
+      
+      const promptTextArea = document.getElementById('autoGeneratePrompt');
+      if (promptTextArea) {
+        promptTextArea.value = "Analyzing package... Please wait...";
+        promptTextArea.disabled = true;
+      }
+
+      fetch('/get-ghidra-context')
+        .then(response => {
+          if (!response.ok) {
+            if (response.status === 404) {
+              throw new Error("Endpoint /get-ghidra-context not found. Please restart the Frida Script Runner Python server.");
+            }
+            throw new Error("HTTP error! Status: " + response.status);
+          }
+          const contentType = response.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Invalid response content type. Please restart the Frida Script Runner Python server.");
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.success) {
+            if (promptTextArea) {
+              promptTextArea.value = data.context + "\n\nDescribe what you want to do with this context:\n";
+            }
+            appendContent("✅ MCP/Ghidra analysis completed successfully");
+          } else {
+            if (promptTextArea) {
+              promptTextArea.value = "";
+            }
+            appendContent("❌ MCP/Ghidra analysis failed: " + data.error);
+          }
+        })
+        .catch(error => {
+          if (promptTextArea) {
+            promptTextArea.value = "";
+          }
+          appendContent("❌ MCP/Ghidra analysis network error: " + error.message);
+        })
+        .finally(() => {
+          if (promptTextArea) {
+            promptTextArea.disabled = false;
+            promptTextArea.focus();
+          }
+        });
+    }
+  }
+}
 
 function toggleAutoGenerateInput() {
   const selectedScript = document.getElementById('selectedScript');
@@ -847,6 +928,7 @@ function toggleAutoGenerateInput() {
   
   if (selectedScript.value === 'auto_generate') {
     autoGenerateDiv.style.display = 'block';
+    triggerMCPAnalysis();
   } else {
     autoGenerateDiv.style.display = 'none';
   }
@@ -854,7 +936,6 @@ function toggleAutoGenerateInput() {
 
 function generateFridaScript() {
   const promptText = document.getElementById('autoGeneratePrompt').value.trim();
-  const scriptContentArea = document.getElementById('scriptContent');
   const generateButton = document.querySelector('button[onclick="generateFridaScript()"]');
   
   if (!promptText) {
@@ -864,7 +945,7 @@ function generateFridaScript() {
   
   generateButton.disabled = true;
   generateButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Generating...';
-  scriptContentArea.value = 'Generating Frida script, please wait...';
+  setScriptContent('Generating Frida script, please wait...');
   
   fetch('/generate-frida-script', {
     method: 'POST',
@@ -877,18 +958,26 @@ function generateFridaScript() {
   })
   .then(response => response.json())
   .then(data => {
+    const promptTextArea = document.getElementById('autoGeneratePrompt');
+    if (promptTextArea) {
+      promptTextArea.value = "";
+    }
+    
     if (data.success) {
-      scriptContentArea.value = data.script;
-      appendContent('✅ Frida script generated successfully');
+      setScriptContent(data.script);
+      appendContent('✨ AI Script Generation Successful!');
     } else {
-      scriptContentArea.value = '// Error generating script\n// ' + (data.error || 'Unknown error occurred');
-      appendContent('❌ Error generating script: ' + (data.error || 'Unknown error'));
+      setScriptContent('// Error generating script\n// ' + (data.error || 'Unknown error occurred') + '\n\n' + (data.script || ''));
+      appendContent('❌ AI Script Generation Error: ' + (data.error || 'Unknown error occurred'));
     }
   })
   .catch(error => {
-    console.error('Error generating script:', error);
-    scriptContentArea.value = '// Error generating script\n// Network error or server unavailable';
-    appendContent('❌ Network error while generating script');
+    const promptTextArea = document.getElementById('autoGeneratePrompt');
+    if (promptTextArea) {
+      promptTextArea.value = "";
+    }
+    setScriptContent('// Error generating script\n// Network error or server unavailable');
+    appendContent('❌ MCP/Ghidra analysis network error: ' + error.message);
   })
   .finally(() => {
     generateButton.disabled = false;
